@@ -1,1 +1,1 @@
-# ai_discovery_engine
+# AI Stock Discovery Engine
