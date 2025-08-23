@@ -8,14 +8,24 @@ from typing import List, Dict, Any
 import logging
 import os
 from newsapi import NewsApiClient
+from src.utils.config import config
 
 class NewsCollector:
     """Collects news data from various sources."""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.enabled = config.is_enabled('news')
         self.news_api_key = os.getenv("NEWS_API_KEY")
-        self.newsapi = NewsApiClient(api_key=self.news_api_key) if self.news_api_key else None
+        
+        if not self.enabled:
+            self.newsapi = None
+            self.logger.info("News API is disabled via configuration.")
+        elif self.news_api_key:
+            self.newsapi = NewsApiClient(api_key=self.news_api_key)
+        else:
+            self.newsapi = None
+            self.logger.warning("News API key not found. News collection will be limited.")
         
     async def collect_latest_news(self, timeframe: str = "daily") -> List[Dict[str, Any]]:
         """
@@ -35,6 +45,10 @@ class NewsCollector:
             from_date = datetime.now() - timedelta(days=7)
             
         news_articles = []
+        
+        if not self.enabled:
+            self.logger.info("News API is disabled. Returning empty data.")
+            return []
         
         try:
             if self.newsapi:

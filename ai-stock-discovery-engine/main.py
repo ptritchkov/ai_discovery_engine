@@ -21,6 +21,7 @@ from src.ml_models.prediction_model import PredictionModel
 from src.decision_engine.investment_engine import InvestmentEngine
 from src.utils.logger import setup_logger
 from src.utils.database import Database
+from src.utils.config import config
 
 load_dotenv()
 
@@ -29,10 +30,13 @@ class StockDiscoveryEngine:
         self.logger = setup_logger(__name__)
         self.db = Database()
         
-        self.news_collector = NewsCollector()
-        self.twitter_collector = TwitterCollector()
-        self.polymarket_collector = PolymarketCollector()
-        self.market_data_collector = MarketDataCollector()
+        if not config.validate_configuration():
+            raise ValueError("Invalid configuration: At least one data source must be enabled")
+        
+        self.news_collector = NewsCollector() if config.is_enabled('news') else None
+        self.twitter_collector = TwitterCollector() if config.is_enabled('twitter') else None
+        self.polymarket_collector = PolymarketCollector() if config.is_enabled('polymarket') else None
+        self.market_data_collector = MarketDataCollector() if (config.is_enabled('polygon') or config.is_enabled('yfinance')) else None
         
         self.sentiment_analyzer = SentimentAnalyzer()
         self.llm_analyzer = LLMAnalyzer()
@@ -40,6 +44,10 @@ class StockDiscoveryEngine:
         
         self.prediction_model = PredictionModel()
         self.investment_engine = InvestmentEngine()
+        
+        enabled_services = config.get_enabled_services()
+        enabled_count = sum(enabled_services.values())
+        self.logger.info(f"AI Stock Discovery Engine initialized with {enabled_count} enabled services: {enabled_services}")
         
     async def run_discovery_cycle(self, timeframe: str = "daily") -> Dict[str, Any]:
         """
@@ -55,17 +63,26 @@ class StockDiscoveryEngine:
         
         try:
             self.logger.info("Collecting news data...")
-            news_data = await self.news_collector.collect_latest_news(timeframe)
+            news_data = []
+            if self.news_collector:
+                news_data = await self.news_collector.collect_latest_news(timeframe)
             
             self.logger.info("Analyzing news for stock implications...")
             affected_stocks = await self.llm_analyzer.identify_affected_stocks(news_data)
             
             self.logger.info("Collecting sentiment data...")
-            twitter_sentiment = await self.twitter_collector.collect_sentiment_data(affected_stocks)
-            polymarket_data = await self.polymarket_collector.collect_market_sentiment(affected_stocks)
+            twitter_sentiment = {}
+            if self.twitter_collector:
+                twitter_sentiment = await self.twitter_collector.collect_sentiment_data(affected_stocks)
+            
+            polymarket_data = {}
+            if self.polymarket_collector:
+                polymarket_data = await self.polymarket_collector.collect_market_sentiment(affected_stocks)
             
             self.logger.info("Collecting market data...")
-            market_data = await self.market_data_collector.collect_stock_data(affected_stocks, timeframe)
+            market_data = {}
+            if self.market_data_collector:
+                market_data = await self.market_data_collector.collect_stock_data(affected_stocks, timeframe)
             
             self.logger.info("Analyzing sentiment...")
             sentiment_analysis = await self.sentiment_analyzer.analyze_comprehensive_sentiment(

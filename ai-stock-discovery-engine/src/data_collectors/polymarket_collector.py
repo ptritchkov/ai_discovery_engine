@@ -7,13 +7,18 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import logging
 import json
+from src.utils.config import config
 
 class PolymarketCollector:
     """Collects prediction market data from Polymarket."""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.enabled = config.is_enabled('polymarket')
         self.base_url = "https://gamma-api.polymarket.com"
+        
+        if not self.enabled:
+            self.logger.info("Polymarket API is disabled via configuration.")
         
     async def collect_market_sentiment(self, stocks: List[str]) -> Dict[str, Any]:
         """
@@ -28,6 +33,10 @@ class PolymarketCollector:
         self.logger.info(f"Collecting Polymarket sentiment for {len(stocks)} stocks...")
         
         market_sentiment = {}
+        
+        if not self.enabled:
+            self.logger.info("Polymarket API is disabled. Returning empty data.")
+            return {}
         
         try:
             async with aiohttp.ClientSession() as session:
@@ -44,7 +53,7 @@ class PolymarketCollector:
                         
         except Exception as e:
             self.logger.error(f"Error in Polymarket collection: {str(e)}")
-            return self._generate_mock_market_data(stocks)
+            return {}
             
         self.logger.info(f"Collected Polymarket sentiment for {len(market_sentiment)} stocks")
         return market_sentiment
@@ -89,8 +98,7 @@ class PolymarketCollector:
     async def _search_markets(self, session: aiohttp.ClientSession, query: str) -> List[Dict[str, Any]]:
         """Search for prediction markets related to a query."""
         try:
-            
-            return self._generate_mock_markets(query)
+            return []
             
         except Exception as e:
             self.logger.warning(f"Error searching markets for '{query}': {str(e)}")
@@ -153,96 +161,15 @@ class PolymarketCollector:
             'collected_at': datetime.now().isoformat()
         }
     
-    def _generate_mock_markets(self, query: str) -> List[Dict[str, Any]]:
-        """Generate mock market data for testing."""
-        import random
-        
-        markets = []
-        
-        for i in range(random.randint(1, 3)):
-            probability = random.uniform(0.3, 0.7)
-            volume = random.uniform(1000, 100000)
-            
-            markets.append({
-                'id': f"mock_market_{i}_{query}",
-                'question': f"Will {query} outperform the market this quarter?",
-                'probability': probability,
-                'volume': volume,
-                'liquidity': volume * 0.1,
-                'end_date': (datetime.now() + timedelta(days=random.randint(30, 90))).isoformat(),
-                'category': 'stocks',
-                'mock_data': True
-            })
-        
-        return markets
     
-    def _generate_mock_market_data(self, stocks: List[str]) -> Dict[str, Any]:
-        """Generate mock market sentiment data when API is not available."""
-        import random
-        
-        market_data = {}
-        
-        for stock in stocks:
-            probability = random.uniform(0.3, 0.7)
-            sentiment_score = (probability - 0.5) * 2
-            
-            market_data[stock] = {
-                'stock': stock,
-                'market_count': random.randint(1, 5),
-                'sentiment_score': sentiment_score,
-                'confidence': abs(sentiment_score),
-                'prediction_probability': probability,
-                'volume_weighted_sentiment': sentiment_score * random.uniform(0.8, 1.2),
-                'top_markets': [
-                    {
-                        'question': f"Will {stock} outperform the market this quarter?",
-                        'probability': probability,
-                        'volume': random.uniform(10000, 100000)
-                    }
-                ],
-                'collected_at': datetime.now().isoformat(),
-                'mock_data': True
-            }
-        
-        return market_data
     
     async def get_trending_markets(self) -> List[Dict[str, Any]]:
         """Get trending prediction markets that might indicate market sentiment."""
         try:
-            return self._generate_mock_trending_markets()
+            if not self.enabled:
+                return []
+            return []
             
         except Exception as e:
             self.logger.error(f"Error fetching trending markets: {str(e)}")
             return []
-    
-    def _generate_mock_trending_markets(self) -> List[Dict[str, Any]]:
-        """Generate mock trending markets for testing."""
-        import random
-        
-        trending_topics = [
-            "Federal Reserve interest rates",
-            "Tech stock performance",
-            "Oil prices",
-            "Cryptocurrency adoption",
-            "Inflation rates",
-            "GDP growth",
-            "Unemployment rates"
-        ]
-        
-        markets = []
-        
-        for topic in trending_topics:
-            probability = random.uniform(0.2, 0.8)
-            volume = random.uniform(50000, 500000)
-            
-            markets.append({
-                'id': f"trending_{topic.replace(' ', '_')}",
-                'question': f"Will {topic} exceed expectations this quarter?",
-                'probability': probability,
-                'volume': volume,
-                'category': 'economics',
-                'trend_score': random.uniform(0.5, 1.0),
-                'mock_data': True
-            })
-        
-        return sorted(markets, key=lambda x: x['trend_score'], reverse=True)

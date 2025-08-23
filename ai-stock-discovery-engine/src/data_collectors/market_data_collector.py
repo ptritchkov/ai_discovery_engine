@@ -11,12 +11,17 @@ import pandas as pd
 import finnhub
 from alpha_vantage.timeseries import TimeSeries
 from polygon import RESTClient
+from src.utils.config import config
 
 class MarketDataCollector:
     """Collects market data from various financial APIs."""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        
+        self.polygon_enabled = config.is_enabled('polygon')
+        self.yfinance_enabled = config.is_enabled('yfinance')
+        self.prioritize_polygon = config.PRIORITIZE_POLYGON
         
         self.finnhub_key = os.getenv("FINNHUB_API_KEY")
         self.alpha_vantage_key = os.getenv("ALPHA_VANTAGE_API_KEY")
@@ -32,10 +37,13 @@ class MarketDataCollector:
         else:
             self.alpha_vantage = None
             
-        if self.polygon_key:
+        if self.polygon_enabled and self.polygon_key:
             self.polygon_client = RESTClient(self.polygon_key)
         else:
             self.polygon_client = None
+            
+        if not (self.polygon_enabled or self.yfinance_enabled):
+            self.logger.warning("No market data APIs are enabled. Market data collection will be unavailable.")
     
     async def collect_stock_data(self, stocks: List[str], timeframe: str = "daily") -> Dict[str, Any]:
         """
@@ -51,6 +59,10 @@ class MarketDataCollector:
         self.logger.info(f"Collecting market data for {len(stocks)} stocks...")
         
         stock_data = {}
+        
+        if not (self.polygon_enabled or self.yfinance_enabled):
+            self.logger.info("Market data APIs are disabled. Returning empty data.")
+            return {}
         
         try:
             for stock in stocks[:20]:  # Limit to avoid rate limits
@@ -80,19 +92,19 @@ class MarketDataCollector:
                 start_date = datetime.now() - timedelta(days=30)
                 period = "1mo"
             
-            yfinance_data = await self._collect_yfinance_data(symbol, period)
+            price_data = await self._collect_price_data(symbol, period)
             finnhub_data = await self._collect_finnhub_data(symbol)
             technical_indicators = await self._calculate_technical_indicators(symbol, period)
             
             comprehensive_data = {
                 'symbol': symbol,
                 'timeframe': timeframe,
-                'price_data': yfinance_data,
+                'price_data': price_data,
                 'fundamentals': finnhub_data,
                 'technical_indicators': technical_indicators,
-                'market_metrics': await self._calculate_market_metrics(yfinance_data),
-                'volatility_analysis': await self._analyze_volatility(yfinance_data),
-                'volume_analysis': await self._analyze_volume(yfinance_data),
+                'market_metrics': await self._calculate_market_metrics(price_data),
+                'volatility_analysis': await self._analyze_volatility(price_data),
+                'volume_analysis': await self._analyze_volume(price_data),
                 'collected_at': datetime.now().isoformat()
             }
             
@@ -100,6 +112,88 @@ class MarketDataCollector:
             
         except Exception as e:
             self.logger.error(f"Error collecting comprehensive data for {symbol}: {str(e)}")
+            return self._get_default_stock_data(symbol)
+    
+    async def _collect_price_data(self, symbol: str, period: str) -> Dict[str, Any]:
+        """Collect price data using preferred API (Polygon.io first, then yfinance)."""
+        if self.prioritize_polygon and self.polygon_enabled and self.polygon_client:
+            try:
+                polygon_data = await self._collect_polygon_data(symbol, period)
+                if polygon_data and polygon_data.get('current_price', 0) > 0:
+                    self.logger.info(f"Successfully collected data for {symbol} using Polygon.io")
+                    return polygon_data
+            except Exception as e:
+                self.logger.warning(f"Polygon.io failed for {symbol}: {str(e)}, falling back to yfinance")
+        
+        if self.yfinance_enabled:
+            return await self._collect_yfinance_data(symbol, period)
+        
+        self.logger.error(f"No available market data APIs for {symbol}")
+        return self._get_default_stock_data(symbol)
+    
+    async def _collect_polygon_data(self, symbol: str, period: str) -> Dict[str, Any]:
+        """Collect data using Polygon.io API."""
+        try:
+            if not self.polygon_client:
+                return self._get_default_stock_data(symbol)
+            
+            end_date = datetime.now().date()
+            if period == "7d":
+                start_date = end_date - timedelta(days=7)
+            else:
+                start_date = end_date - timedelta(days=30)
+            
+            aggs = self.polygon_client.get_aggs(
+                ticker=symbol,
+                multiplier=1,
+                timespan="day",
+                from_=start_date,
+                to=end_date
+            )
+            
+            if not aggs or len(aggs) == 0:
+                return self._get_default_stock_data(symbol)
+            
+            latest = aggs[-1]
+            first = aggs[0]
+            
+            current_price = latest.close
+            previous_price = first.close
+            price_change = current_price - previous_price
+            price_change_pct = (price_change / previous_price) * 100 if previous_price > 0 else 0
+            
+            historical_data = []
+            for agg in aggs[-10:]:
+                historical_data.append({
+                    'Date': datetime.fromtimestamp(agg.timestamp / 1000).strftime('%Y-%m-%d'),
+                    'Open': agg.open,
+                    'High': agg.high,
+                    'Low': agg.low,
+                    'Close': agg.close,
+                    'Volume': agg.volume
+                })
+            
+            avg_volume = sum(agg.volume for agg in aggs) / len(aggs) if aggs else 0
+            
+            return {
+                'current_price': float(current_price),
+                'previous_price': float(previous_price),
+                'price_change': float(price_change),
+                'price_change_pct': float(price_change_pct),
+                'volume': int(latest.volume),
+                'avg_volume': float(avg_volume),
+                'high_52w': 0.0,
+                'low_52w': 0.0,
+                'market_cap': 0,
+                'pe_ratio': 0.0,
+                'dividend_yield': 0.0,
+                'beta': 1.0,
+                'historical_data': historical_data,
+                'data_source': 'polygon'
+            }
+            
+        except Exception as e:
+            self.logger.warning(f"Error collecting Polygon data for {symbol}: {str(e)}")
             return self._get_default_stock_data(symbol)
     
     async def _collect_yfinance_data(self, symbol: str, period: str) -> Dict[str, Any]:
@@ -132,7 +226,8 @@ class MarketDataCollector:
                 'pe_ratio': info.get('trailingPE', 0),
                 'dividend_yield': info.get('dividendYield', 0),
                 'beta': info.get('beta', 1.0),
-                'historical_data': hist.to_dict('records')[-10:]  # Last 10 days
+                'historical_data': hist.to_dict('records')[-10:],
+                'data_source': 'yfinance'
             }
             
         except Exception as e:
@@ -252,14 +347,15 @@ class MarketDataCollector:
                 returns.append(daily_return)
             
             if returns:
-                volatility = pd.Series(returns).std()
-                avg_return = pd.Series(returns).mean()
+                returns_series = pd.Series(returns, dtype=float)
+                volatility = float(returns_series.std())
+                avg_return = float(returns_series.mean())
                 
                 return {
-                    'volatility_score': float(volatility),
-                    'average_return': float(avg_return),
+                    'volatility_score': volatility,
+                    'average_return': avg_return,
                     'volatility_trend': 'high' if volatility > 0.03 else 'low' if volatility < 0.01 else 'moderate',
-                    'sharpe_ratio': float(avg_return / volatility) if volatility > 0 else 0
+                    'sharpe_ratio': avg_return / volatility if volatility > 0 else 0
                 }
             
             return {'volatility_score': 0.5, 'volatility_trend': 'stable'}

@@ -7,19 +7,24 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import logging
 import re
+from src.utils.config import config
 
 class TwitterCollector:
     """Collects Twitter data for sentiment analysis."""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.enabled = config.is_enabled('twitter')
         self.bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
         
-        if self.bearer_token:
+        if not self.enabled:
+            self.client = None
+            self.logger.info("Twitter API is disabled via configuration.")
+        elif self.bearer_token:
             self.client = tweepy.Client(bearer_token=self.bearer_token)
         else:
             self.client = None
-            self.logger.warning("Twitter Bearer Token not found. Twitter data collection will be limited.")
+            self.logger.warning("Twitter Bearer Token not found. Twitter data collection will be unavailable.")
     
     async def collect_sentiment_data(self, stocks: List[str]) -> Dict[str, Any]:
         """
@@ -35,9 +40,13 @@ class TwitterCollector:
         
         sentiment_data = {}
         
+        if not self.enabled:
+            self.logger.info("Twitter API is disabled. Returning empty data.")
+            return {}
+        
         if not self.client:
-            self.logger.warning("Twitter client not available. Returning mock data.")
-            return self._generate_mock_sentiment_data(stocks)
+            self.logger.warning("Twitter client not available. Returning empty data.")
+            return {}
         
         try:
             for stock in stocks[:10]:  # Limit to avoid rate limits
@@ -53,7 +62,7 @@ class TwitterCollector:
                     
         except Exception as e:
             self.logger.error(f"Error in Twitter sentiment collection: {str(e)}")
-            return self._generate_mock_sentiment_data(stocks)
+            return {}
             
         self.logger.info(f"Collected Twitter sentiment for {len(sentiment_data)} stocks")
         return sentiment_data
@@ -183,36 +192,3 @@ class TwitterCollector:
             'top_tweets': [],
             'collected_at': datetime.now().isoformat()
         }
-    
-    def _generate_mock_sentiment_data(self, stocks: List[str]) -> Dict[str, Any]:
-        """Generate mock sentiment data when Twitter API is not available."""
-        import random
-        
-        sentiment_data = {}
-        
-        for stock in stocks:
-            sentiment_score = random.uniform(-0.5, 0.5)
-            
-            if sentiment_score > 0.1:
-                sentiment_label = 'positive'
-            elif sentiment_score < -0.1:
-                sentiment_label = 'negative'
-            else:
-                sentiment_label = 'neutral'
-            
-            sentiment_data[stock] = {
-                'stock': stock,
-                'tweet_count': random.randint(50, 500),
-                'sentiment_score': sentiment_score,
-                'sentiment_label': sentiment_label,
-                'confidence': abs(sentiment_score),
-                'engagement_score': random.uniform(100, 1000),
-                'top_tweets': [
-                    {'text': f"Mock tweet about ${stock} looking good!", 'like_count': random.randint(10, 100)},
-                    {'text': f"Interesting movement in ${stock} today", 'like_count': random.randint(5, 50)}
-                ],
-                'collected_at': datetime.now().isoformat(),
-                'mock_data': True
-            }
-        
-        return sentiment_data

@@ -8,15 +8,20 @@ from typing import List, Dict, Any
 import logging
 import json
 import re
+from src.utils.config import config
 
 class LLMAnalyzer:
     """Uses LLM for advanced pattern recognition and stock identification."""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.enabled = config.is_enabled('openai')
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         
-        if self.openai_api_key:
+        if not self.enabled:
+            self.client = None
+            self.logger.info("OpenAI API is disabled via configuration.")
+        elif self.openai_api_key:
             openai.api_key = self.openai_api_key
             self.client = openai.OpenAI(api_key=self.openai_api_key)
         else:
@@ -34,6 +39,10 @@ class LLMAnalyzer:
             List of stock symbols that might be affected
         """
         self.logger.info(f"Analyzing {len(news_data)} news articles to identify affected stocks...")
+        
+        if not self.enabled:
+            self.logger.info("OpenAI API is disabled. Using fallback method.")
+            return self._fallback_stock_identification(news_data)
         
         if not self.client:
             self.logger.warning("OpenAI client not available. Using fallback method.")
@@ -248,6 +257,9 @@ Focus on major publicly traded companies with liquid markets. Use standard ticke
         """
         self.logger.info("Analyzing market patterns with LLM...")
         
+        if not self.enabled:
+            return self._fallback_pattern_analysis(market_data, news_data)
+        
         if not self.client:
             return self._fallback_pattern_analysis(market_data, news_data)
         
@@ -373,6 +385,9 @@ Provide your analysis in JSON format:
         Returns:
             Investment thesis and reasoning
         """
+        if not self.enabled:
+            return self._fallback_investment_thesis(stock)
+        
         if not self.client:
             return self._fallback_investment_thesis(stock)
         
