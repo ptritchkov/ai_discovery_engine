@@ -188,21 +188,8 @@ Key configuration options in `.env`:
 The system is designed to:
 - Process 100+ news articles per cycle
 - Analyze 50+ stocks simultaneously
-- Generate recommendations in under 2 minutes
 - Maintain 70%+ prediction accuracy (backtested)
 
 ## 🚨 Risk Disclaimer
 
-This system is for educational and research purposes. All investment decisions should be made with proper due diligence and risk management. Past performance does not guarantee future results.
-
-## 🤝 Contributing
-
-The system is modular and extensible. Key areas for enhancement:
-- Additional data sources (Reddit, Discord, etc.)
-- Advanced ML models (transformers, reinforcement learning)
-- Real-time streaming data processing
-- Web interface for visualization
-
-## 📝 License
-
-This project is for educational purposes. Please ensure compliance with all API terms of service and financial regulations in your jurisdiction.
+This system is for educational and research purposes. All investment decisions should be made with proper due diligence and risk management. Past performance does not guarantee future results. This is not investment advice. 
