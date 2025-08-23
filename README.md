@@ -57,7 +57,12 @@ cd /home/ubuntu/ai-stock-discovery
 pip install -r requirements.txt
 ```
 
-3. Configure environment variables in `.env`:
+3. Configure environment variables by copying `.env.example` to `.env`:
+```bash
+cp ai-stock-discovery-engine/.env.example ai-stock-discovery-engine/.env
+```
+
+Then edit `.env` with your API keys and preferred settings:
 ```bash
 # API Keys
 OPENAI_API_KEY=your_openai_key
@@ -66,6 +71,15 @@ NEWS_API_KEY=your_news_api_key
 FINNHUB_API_KEY=your_finnhub_key
 POLYGON_API_KEY=your_polygon_key
 ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key
+
+# Feature Toggles (NEW)
+ENABLE_NEWS_API=true
+ENABLE_TWITTER_API=true
+ENABLE_POLYMARKET_API=true
+ENABLE_POLYGON_API=true
+ENABLE_YFINANCE_API=true
+ENABLE_OPENAI_API=true
+PRIORITIZE_POLYGON=true
 
 # Configuration
 LOG_LEVEL=INFO
@@ -176,12 +190,37 @@ The engine generates comprehensive analysis results including:
 
 ## 🔧 Configuration
 
-Key configuration options in `.env`:
+### New: Configurable API Selection
 
+The system now supports individual control over data sources through environment variables in `.env`:
+
+**Feature Toggles:**
+- `ENABLE_NEWS_API=true/false` - Enable/disable news collection
+- `ENABLE_TWITTER_API=true/false` - Enable/disable Twitter sentiment analysis  
+- `ENABLE_POLYMARKET_API=true/false` - Enable/disable Polymarket data
+- `ENABLE_POLYGON_API=true/false` - Enable/disable Polygon.io market data
+- `ENABLE_YFINANCE_API=true/false` - Enable/disable Yahoo Finance market data
+- `ENABLE_OPENAI_API=true/false` - Enable/disable LLM analysis
+
+**Data Source Preferences:**
+- `PRIORITIZE_POLYGON=true` - Use Polygon.io before Yahoo Finance for market data
+
+**Configuration Rules:**
+- At least one data source must be enabled for the system to function
+- When APIs are disabled, the system skips those data collection steps entirely
+- No fallback to mock/fake data - system fails gracefully when APIs are unavailable
+- Market data requires either `ENABLE_POLYGON_API` or `ENABLE_YFINANCE_API` to be enabled
+
+**Other Configuration Options:**
 - `MAX_STOCKS_TO_ANALYZE`: Maximum number of stocks to analyze per cycle
 - `SENTIMENT_THRESHOLD`: Minimum sentiment score for recommendations
 - `CONFIDENCE_THRESHOLD`: Minimum confidence for displaying recommendations
 - `LOG_LEVEL`: Logging verbosity (DEBUG, INFO, WARNING, ERROR)
+
+**Test Your Configuration:**
+```bash
+python test_config.py
+```
 
 ## 📈 Performance
 
@@ -192,4 +231,4 @@ The system is designed to:
 
 ## 🚨 Risk Disclaimer
 
-This system is for educational and research purposes. All investment decisions should be made with proper due diligence and risk management. Past performance does not guarantee future results. This is not investment advice. 
+This system is for educational and research purposes. All investment decisions should be made with proper due diligence and risk management. Past performance does not guarantee future results. This is not investment advice.  
