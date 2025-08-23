@@ -36,7 +36,7 @@ AI Stock Discovery Engine
 
 ## 📋 Prerequisites
 
-- Python 3.8+
+- Python 3.9+
 - API Keys for:
   - OpenAI
   - Twitter (Bearer Token)
