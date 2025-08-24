@@ -80,19 +80,33 @@ ai_discovery_engine/
 
 ## 🚀 Usage
 
-### Run Live Analysis
+### Single Entry Point - main.py
+
+The consolidated system now has a single entry point with multiple operation modes:
+
 ```bash
-python consolidated_main.py
+# Run live stock discovery analysis (default)
+python main.py
+
+# Run with specific time period
+python main.py --mode discovery --period weekly
+
+# Run historical backtesting with portfolio simulation
+python main.py --mode backtest --weeks-back 12 --portfolio 10000
+
+# Run backtesting with custom parameters
+python main.py --mode backtest --weeks-back 8 --interval 2 --portfolio 25000
+
+# Run comprehensive test suite
+python main.py --mode test
 ```
 
-### Run Comprehensive Tests
+### Legacy Scripts (for reference)
 ```bash
-python test_suite.py
-```
-
-### Run Historical Backtesting
-```bash
-python backtesting_engine.py
+# These can be removed after consolidation
+python consolidated_main.py  # Functionality moved to main.py
+python test_suite.py         # Functionality moved to main.py --mode test
+python backtesting_engine.py # Functionality moved to main.py --mode backtest
 ```
 
 ## 📊 Backtesting Features
@@ -106,16 +120,21 @@ The backtesting engine provides comprehensive historical analysis:
 - **Results Export**: JSON export of detailed backtesting results
 
 ### Backtesting Example
-```python
+```bash
+# Command-line interface (recommended)
+python main.py --mode backtest --weeks-back 12 --interval 3 --portfolio 10000
+
+# Programmatic usage
 from backtesting_engine import BacktestingEngine
 
 engine = BacktestingEngine()
 
-# Run 3-month backtest with weekly intervals
+# Run 3-month backtest with portfolio simulation
 results = await engine.run_historical_backtest(
-    start_weeks_ago=12,  # 3 months back
-    end_weeks_ago=1,     # 1 week back
-    interval_days=7      # Weekly intervals
+    start_weeks_ago=12,        # 3 months back
+    end_weeks_ago=1,           # 1 week back
+    interval_days=3,           # 3-day intervals
+    initial_portfolio=10000.0  # $10K starting portfolio
 )
 ```
 
@@ -148,11 +167,26 @@ The consolidation process merged:
 - Scattered functionality → Clean modular architecture
 
 ### Key Improvements
+- ✅ Fixed confidence scoring to preserve LLM analysis quality
+- ✅ Increased article processing from 50 to 100 articles
+- ✅ Enhanced backtesting with multiple periods and $10K portfolio simulation
+- ✅ Single main.py entry point with command-line interface
 - ✅ Fixed type annotation errors
 - ✅ Unified configuration management
 - ✅ Enhanced error handling and logging
-- ✅ Comprehensive backtesting capabilities
 - ✅ Production-ready architecture
+
+**Files to Remove After Consolidation:**
+- enhanced_main.py (functionality merged into main.py)
+- test_market_data.py, test_yfinance_basic.py, test_ticker_fetch.py, test_recommendations.py (consolidated into test_suite.py)
+- main_unified.py (temporary file, functionality merged into main.py)
+
+**Files to Keep:**
+- consolidated_main.py (imported by main.py for discovery functionality)
+- test_suite.py (imported by main.py for testing functionality)
+- backtesting_engine.py (imported by main.py for backtesting functionality)
+
+**Safe to Delete:** The scattered test scripts and enhanced_main.py can now be safely removed as all functionality has been consolidated into the single main.py entry point with proper command-line interface.
 
 ## 🚫 Disabled Features
 
