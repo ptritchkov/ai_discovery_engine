@@ -21,7 +21,7 @@ class InvestmentEngine:
         sentiment_analysis: Dict[str, Any],
         market_analysis: Dict[str, Any],
         ml_predictions: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         Generate investment recommendations based on all analysis.
         
@@ -102,7 +102,7 @@ class InvestmentEngine:
         sentiment_analysis: Dict[str, Any],
         market_analysis: Dict[str, Any],
         ml_predictions: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any] | None:
         """Analyze investment opportunity for a single stock."""
         try:
             combined_sentiment = sentiment_analysis.get('combined_sentiment', {})
