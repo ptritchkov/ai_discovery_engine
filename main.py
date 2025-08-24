@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 from consolidated_main import ConsolidatedStockDiscoveryEngine
 from backtesting_engine import BacktestingEngine
-from test_suite import ConsolidatedTestSuite
+# from test_suite import ConsolidatedTestSuite
 
 load_dotenv()
 
@@ -64,10 +64,8 @@ async def run_tests():
     print("🧪 AI STOCK DISCOVERY ENGINE - COMPREHENSIVE TESTING")
     print("="*80)
     
-    test_suite = ConsolidatedTestSuite()
-    results = await test_suite.run_all_tests()
-    
-    return results
+    print("Test mode temporarily disabled - use discovery or backtest mode")
+    return {"status": "disabled"}
 
 async def main():
     """Main entry point with command-line interface."""

@@ -125,17 +125,29 @@ class MarketAnalyzer:
                 
                 if len(returns) > 5 and len(news_impact_scores) > 5:
                     try:
-                        correlation, p_value = stats.pearsonr(returns, news_impact_scores)
+                        returns_std = np.std(returns)
+                        scores_std = np.std(news_impact_scores)
                         
-                        correlations[stock] = {
-                            'correlation': correlation,
-                            'p_value': p_value,
-                            'significance': 'significant' if p_value < 0.05 else 'not_significant',
-                            'sample_size': len(returns),
-                            'interpretation': self._interpret_news_correlation(correlation, p_value)
-                        }
-                    except:
-                        correlations[stock] = {'correlation': 0, 'significance': 'insufficient_data'}
+                        if returns_std == 0 or scores_std == 0:
+                            correlations[stock] = {
+                                'correlation': 0.0, 
+                                'p_value': 1.0,
+                                'significance': 'constant_input',
+                                'sample_size': len(returns),
+                                'interpretation': 'No correlation possible - constant input data'
+                            }
+                        else:
+                            correlation, p_value = stats.pearsonr(returns, news_impact_scores)
+                            correlations[stock] = {
+                                'correlation': correlation,
+                                'p_value': p_value,
+                                'significance': 'significant' if p_value < 0.05 else 'not_significant',
+                                'sample_size': len(returns),
+                                'interpretation': self._interpret_news_correlation(correlation, p_value)
+                            }
+                    except Exception as e:
+                        self.logger.warning(f"Error calculating correlation for {stock}: {str(e)}")
+                        correlations[stock] = {'correlation': 0.0, 'significance': 'insufficient_data'}
             
             return {
                 'stock_correlations': correlations,
@@ -516,7 +528,7 @@ class MarketAnalyzer:
         valid_correlations = [v['correlation'] for v in correlations.values() 
                             if 'correlation' in v and v.get('significance') == 'significant']
         
-        return np.mean(valid_correlations) if valid_correlations else 0
+        return float(np.mean(valid_correlations)) if valid_correlations else 0.0
     
     def _calculate_sentiment_price_alignment(self, sentiment_score: float, price_change: float) -> float:
         """Calculate alignment between sentiment and price movement."""
