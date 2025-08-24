@@ -557,7 +557,7 @@ class BacktestingEngine:
             self.logger.error(f"Error analyzing backtest performance: {str(e)}")
             return {}
     
-    async def _generate_backtest_visualizations(self, portfolio_history: List[Dict[str, Any]] = None) -> Dict[str, str]:
+    async def _generate_backtest_visualizations(self, portfolio_history: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Generate ASCII visualizations of backtest results."""
         if not self.backtest_results:
             return {}
