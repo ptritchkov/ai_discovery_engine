@@ -76,7 +76,8 @@ class EnhancedNewsCollector:
         
         async with aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=30),
-            headers={'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'}
+            headers={'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'},
+            connector=aiohttp.TCPConnector(ssl=False, limit=100)
         ) as session:
             
             tasks = []
@@ -90,14 +91,15 @@ class EnhancedNewsCollector:
                 if isinstance(result, Exception):
                     self.logger.warning(f"Error fetching from {news_sources[i]['name']}: {str(result)}")
                 else:
-                    all_articles.extend(result)
+                    if isinstance(result, list):
+                        all_articles.extend(result)
         
         # Deduplicate and filter
         unique_articles = self._deduplicate_articles(all_articles)
         filtered_articles = self._filter_financial_relevance(unique_articles)
         
         self.logger.info(f"Collected {len(filtered_articles)} relevant financial articles")
-        return filtered_articles[:50]  # Return top 50 most relevant
+        return filtered_articles[:100]  # Return top 100 most relevant
     
     async def _fetch_from_source(self, session: aiohttp.ClientSession, source: Dict[str, str], cutoff_time: datetime) -> List[Dict[str, Any]]:
         """Fetch articles from a single news source."""
@@ -239,7 +241,7 @@ class EnhancedNewsCollector:
         # Filter by minimum relevance score
         relevant_articles = [
             article for article in articles 
-            if article.get('relevance_score', 0) > 0.4
+            if article.get('relevance_score', 0) > 0.3
         ]
         
         # Sort by relevance score (highest first)

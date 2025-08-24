@@ -4,6 +4,7 @@ import asyncio
 import yfinance as yf
 import requests
 import os
+import re
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import logging
@@ -85,15 +86,24 @@ class MarketDataCollector:
         self.logger.info(f"Collecting market data for {len(stocks)} stocks...")
         
         stock_data = {}
-        
-        if not (self.polygon_enabled or self.yfinance_enabled):
-            self.logger.info("Market data APIs are disabled. Returning empty data.")
-            return {}
+        # Filter out only obvious non-ticker symbols (company names, generic terms)
+        invalid_symbols = {
+            'CASH', 'REFINANCE', 'SAVINGS', 'NEXUS', 'CENOVUS', 'TESLA', 'APPLE', 'MICROSOFT',
+            'AMAZON', 'GOOGLE', 'NVIDIA', 'META', 'BERKSHIRE', 'JOHNSON', 'EXXON', 'UNITEDHEALTH',
+            'PROCTER', 'JPMORGAN', 'VISA', 'MASTERCARD', 'HOME', 'PFIZER', 'ABBVIE', 'COCA',
+            'PEPSI', 'WALMART', 'DISNEY', 'NETFLIX', 'ADOBE', 'SALESFORCE', 'ORACLE', 'INTEL',
+            'CISCO', 'BROADCOM', 'QUALCOMM', 'TEXAS', 'ADVANCED', 'APPLIED', 'LINDE', 'CATERPILLAR',
+            'GOLDMAN', 'MORGAN', 'BANK', 'WELLS', 'AMERICAN', 'EXPRESS', 'BLACKROCK', 'LOCKHEED',
+            'BOEING', 'RAYTHEON', 'GENERAL', 'ELECTRIC', 'HONEYWELL', 'IBM', 'MCDONALD', 'NIKE',
+            'STARBUCKS', 'COSTCO', 'TARGET', 'LOWES', 'UNION', 'PACIFIC', 'FEDEX', 'UPS'
+        }
+        company_to_ticker = {
+            # Add company names to ticker mapping here
+        }
         
         # Prioritize stocks - put major stocks first
         prioritized_stocks = self._prioritize_stocks(stocks)
         
-        # Limit to 5 stocks for testing purposes
         max_stocks = 5
         if len(prioritized_stocks) > max_stocks:
             self.logger.info(f"Limiting analysis to top {max_stocks} stocks for testing")
@@ -102,9 +112,51 @@ class MarketDataCollector:
         try:
             for i, stock in enumerate(prioritized_stocks):
                 try:
+                    # Validate ticker format (1-5 uppercase letters)
+                    if stock in invalid_symbols:
+                        self.logger.warning(f"Filtering out invalid symbol: {stock}")
+                        continue
+                    
+                    # Check if it's a company name that needs conversion
+                    if stock in company_to_ticker:
+                        self.logger.info(f"Converting company name '{stock}' to ticker '{company_to_ticker[stock]}'")
+                        stock = company_to_ticker[stock]
+                    
+                    # Validate ticker format (1-5 uppercase letters)
+                    if not re.match(r'^[A-Z]{1,5}$', stock):
+                        if ' ' in stock or any(char in stock for char in ['.', '&', '-', 'INC', 'CORP', 'LTD']):
+                            self.logger.warning(f"Skipping invalid ticker format: {stock}")
+                            continue
+                    
                     self.logger.info(f"Processing stock {i+1}/{len(prioritized_stocks)}: {stock}")
-                    stock_info = await self._collect_comprehensive_stock_data(stock, timeframe)
-                    stock_data[stock] = stock_info
+                    try:
+                        comprehensive_data = await self._collect_comprehensive_stock_data(stock, timeframe)
+                        if comprehensive_data:
+                            stock_data[stock] = comprehensive_data
+                            self.logger.info(f"✅ Successfully collected data for {stock}")
+                        else:
+                            # Still add empty data structure to avoid blocking the stock completely
+                            stock_data[stock] = {
+                                'symbol': stock,
+                                'price_data': {},
+                                'technical_indicators': {},
+                                'fundamental_data': {},
+                                'market_metrics': {},
+                                'error': 'No data available'
+                            }
+                            self.logger.warning(f"⚠️  No data collected for {stock} - added placeholder")
+                    except Exception as e:
+                        # Add error placeholder instead of skipping entirely
+                        stock_data[stock] = {
+                            'symbol': stock,
+                            'price_data': {},
+                            'technical_indicators': {},
+                            'fundamental_data': {},
+                            'market_metrics': {},
+                            'error': str(e)
+                        }
+                        self.logger.error(f"❌ Error collecting data for {stock}: {str(e)} - added error placeholder")
+                        continue
                     
                     # Add delay between requests to be respectful to APIs
                     if i < len(prioritized_stocks) - 1:  # Don't wait after the last one

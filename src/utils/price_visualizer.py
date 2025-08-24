@@ -164,3 +164,75 @@ def format_price_summary(historical_data: List[Dict[str, Any]]) -> str:
 """
     
     return summary
+
+def create_backtest_performance_chart(backtest_results: List[Dict[str, Any]], width: int = 60) -> str:
+    """
+    Create a performance chart for backtesting results.
+    
+    Args:
+        backtest_results: List of backtest results with performance data
+        width: Width of the chart in characters
+        
+    Returns:
+        ASCII chart showing backtesting performance
+    """
+    if not backtest_results:
+        return "No backtest data available"
+    
+    # Extract performance data
+    chart_data = []
+    for result in backtest_results:
+        performance = result.get('actual_performance', {})
+        backtest_date = result.get('backtest_date', '')
+        
+        try:
+            date_obj = datetime.fromisoformat(backtest_date)
+            return_pct = performance.get('average_return', 0) * 100
+            
+            chart_data.append({
+                'Date': date_obj.strftime('%m-%d'),
+                'Close': return_pct
+            })
+        except:
+            continue
+    
+    if not chart_data:
+        return "No valid backtest data for charting"
+    
+    return create_price_chart(chart_data, width)
+
+def create_success_rate_chart(backtest_results: List[Dict[str, Any]], width: int = 60) -> str:
+    """
+    Create a success rate chart for backtesting results.
+    
+    Args:
+        backtest_results: List of backtest results with performance data
+        width: Width of the chart in characters
+        
+    Returns:
+        ASCII chart showing success rates over time
+    """
+    if not backtest_results:
+        return "No backtest data available"
+    
+    # Extract success rate data
+    chart_data = []
+    for result in backtest_results:
+        performance = result.get('actual_performance', {})
+        backtest_date = result.get('backtest_date', '')
+        
+        try:
+            date_obj = datetime.fromisoformat(backtest_date)
+            success_rate = performance.get('success_rate', 0) * 100
+            
+            chart_data.append({
+                'Date': date_obj.strftime('%m-%d'),
+                'Close': success_rate
+            })
+        except:
+            continue
+    
+    if not chart_data:
+        return "No valid success rate data for charting"
+    
+    return create_price_chart(chart_data, width)

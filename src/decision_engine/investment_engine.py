@@ -12,7 +12,7 @@ class InvestmentEngine:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.risk_tolerance = 0.7  # Default moderate risk tolerance
-        self.confidence_threshold = 0.3  # Lowered for testing - minimum confidence for recommendations
+        self.confidence_threshold = 0.5  # Minimum confidence for recommendations
         self.max_recommendations = 20  # Maximum number of recommendations to generate
         
     async def generate_recommendations(
@@ -21,7 +21,7 @@ class InvestmentEngine:
         sentiment_analysis: Dict[str, Any],
         market_analysis: Dict[str, Any],
         ml_predictions: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         Generate investment recommendations based on all analysis.
         
@@ -102,7 +102,7 @@ class InvestmentEngine:
         sentiment_analysis: Dict[str, Any],
         market_analysis: Dict[str, Any],
         ml_predictions: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any] | None:
         """Analyze investment opportunity for a single stock."""
         try:
             combined_sentiment = sentiment_analysis.get('combined_sentiment', {})
@@ -279,17 +279,17 @@ class InvestmentEngine:
     ) -> Dict[str, Any]:
         """Calculate overall opportunity score."""
         try:
-            # Adjusted weights for when sentiment data is missing
+            # Adjusted weights to preserve LLM confidence scores
             if sentiment_score == 0 and sentiment_confidence == 0:
                 # No sentiment data - rely more on ML predictions
                 sentiment_weight = 0.0
-                prediction_weight = 0.7
-                confidence_weight = 0.2
+                prediction_weight = 0.5
+                confidence_weight = 0.4  # Increased to preserve LLM confidence
                 risk_weight = 0.1
             else:
-                sentiment_weight = 0.3
-                prediction_weight = 0.4
-                confidence_weight = 0.2
+                sentiment_weight = 0.2
+                prediction_weight = 0.3
+                confidence_weight = 0.4  # Increased to preserve LLM confidence
                 risk_weight = 0.1
             
             sentiment_component = abs(sentiment_score) * sentiment_confidence * sentiment_weight
@@ -301,7 +301,7 @@ class InvestmentEngine:
             
             # Boost score when we have directional ML predictions
             if abs(predicted_return) > 0.01:
-                total_score *= 1.5  # 50% boost for having directional predictions
+                total_score *= 1.2  # 20% boost for having directional predictions
             
             expected_return = abs(predicted_return)
             risk_score = risk_assessment['risk_score']
