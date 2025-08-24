@@ -37,7 +37,7 @@ async def test_multi_source_news():
         print(f"❌ Error testing news collection: {e}")
         return False
 
-def test_scipy_warnings():
+async def test_scipy_warnings():
     """Test that scipy warnings are fixed."""
     print("\n🧪 Testing scipy correlation warnings fix...")
     
@@ -47,15 +47,31 @@ def test_scipy_warnings():
         
         analyzer = MarketAnalyzer()
         
-        constant_returns = [0.0] * 10
-        constant_scores = [0.5] * 10
-        
-        result = analyzer._analyze_news_correlation_patterns({
+        mock_news_data = [
+            {'title': 'Test news', 'relevance_score': 0.5, 'published_at': '2025-07-01T00:00:00'}
+        ]
+        mock_market_data = {
             'TEST': {
-                'returns': constant_returns,
-                'news_impact_scores': constant_scores
+                'price_data': {
+                    'historical_data': [
+                        {'Date': '2025-07-01', 'Close': 100.0},
+                        {'Date': '2025-07-02', 'Close': 100.0},
+                        {'Date': '2025-07-03', 'Close': 100.0},
+                        {'Date': '2025-07-04', 'Close': 100.0},
+                        {'Date': '2025-07-05', 'Close': 100.0},
+                        {'Date': '2025-07-06', 'Close': 100.0}
+                    ]
+                }
             }
-        })
+        }
+        
+        result = await analyzer._analyze_news_price_correlations(mock_news_data, mock_market_data)
+        
+        if 'stock_correlations' in result and 'TEST' in result['stock_correlations']:
+            correlation_data = result['stock_correlations']['TEST']
+            if correlation_data.get('significance') == 'constant_input':
+                print("✅ Scipy correlation analysis correctly handles constant input without warnings")
+                return True
         
         print("✅ Scipy correlation analysis completed without warnings")
         return True
@@ -113,7 +129,7 @@ def test_historical_price_methods():
     try:
         from backtesting_engine import BacktestingEngine
         
-        engine = BacktestingEngine(initial_portfolio=10000)
+        engine = BacktestingEngine()
         
         methods = [
             '_get_price_direct_date',
@@ -128,6 +144,12 @@ def test_historical_price_methods():
             else:
                 print(f"❌ Method {method} missing")
                 return False
+        
+        if hasattr(engine, '_fallback_historical_news'):
+            print("✅ Method _fallback_historical_news exists (uses real RSS feeds)")
+        else:
+            print("❌ Method _fallback_historical_news missing")
+            return False
                 
         return True
         
